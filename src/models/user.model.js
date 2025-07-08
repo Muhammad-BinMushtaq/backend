@@ -40,6 +40,10 @@ const userSchema = new Schema({
         type: String,
 
     },
+    avatar: {
+        type: String,
+
+    },
 
     refreshToken: {
         type: String
@@ -48,8 +52,8 @@ const userSchema = new Schema({
     , { timestamps: true })
 
 
-userSchema.pre("read", async function (next) {
-    if (!isModified("password"))
+userSchema.pre("save", async function (next) {
+    if (!this.isModified("password"))
         return next()
     this.password = await bcrypt.hash(this.password, 10)
     next()

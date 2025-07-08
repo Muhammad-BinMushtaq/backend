@@ -29,8 +29,12 @@ const registerUser = asyncHandler(async (req, res) => {
 
    // check for files
 
-   const avatarLocalPath = req.files?.avatat?.[0]?.path
-   const coverImageLocalPath = req.files?.coverImage?.[0]?.path
+   const avatarLocalPath = req.files?.avatar?.[0]?.path
+   // const coverImageLocalPath = req.files?.coverImage?.[0]?.path
+
+   let coverImageLocalPath;
+   if (req.files && req.files.coverImage && Array.isArray(req.files.coverImage) && req.files.coverImage.length > 0) {  coverImageLocalPath = req.files.coverImage[0].path }
+
 
    if (!avatarLocalPath) {
       throw new ApiErrors(400, "avatar is required")
@@ -40,7 +44,7 @@ const registerUser = asyncHandler(async (req, res) => {
 
    // upload files on cloudinary
    const avatar = await uploadOnCloudinary(avatarLocalPath)
-   const coverImage = await uploadOnCloudinary(avatarLocalPath)
+   const coverImage = await uploadOnCloudinary(coverImageLocalPath)
 
    if (!avatar) {
       throw new ApiErrors(400, "avatar is required")
@@ -48,16 +52,17 @@ const registerUser = asyncHandler(async (req, res) => {
    }
 
    // create user object and send to database
-   const user = User.create({
+   const user = await User.create({
       userName: userName.toLowerCase(),
       email,
+      password,
       fullName,
       avatar: avatar.url,
       coverImage: coverImage?.url || "",
 
    })
-
-   const createdUser = user.findById(user._id).select(
+   // console.log("🔍 Checking for existing user:", userName, email);
+   const createdUser = await User.findById(user._id).select(
       "-password -refreshToken"
    )
 
@@ -66,10 +71,10 @@ const registerUser = asyncHandler(async (req, res) => {
    }
 
    return res.status(201).json(
-      new ApiResponse (200,createdUser,"user created successfully")
-      
+      new ApiResponse(200, createdUser, "user created successfully")
+
    )
-   
+
 
 
 
