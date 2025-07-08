@@ -1,7 +1,7 @@
-import express, { Schema } from 'express'
-import mongoose, { model, mongo, Types } from 'mongoose'
+import express from 'express'
+import mongoose, { model, mongo, Types, Schema } from 'mongoose'
 import bcrypt from 'bcrypt'
-import jwt from 'jsonwebtoken'
+import jwt from 'jsonwebtoken';
 
 const userSchema = new Schema({
     fullName: {
@@ -25,15 +25,10 @@ const userSchema = new Schema({
         unique: true
     },
 
-    watchHistory: {
-        type: [
-            {
-                Types: mongoose.Schema.ObjectId,
-                ref: "video"
-            }
-
-        ]
-    },
+    watchHistory: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Video"
+    }],
 
     password: {
         type: String,
@@ -80,7 +75,7 @@ userSchema.methods.generateAccessToken = function () {
 userSchema.methods.generateRefreshToken = function () {
     return jwt.sign({
         id: this._id,
-        
+
     },
         process.env.REFRESH_TOKEN_SECRET_KEY
         , { expiry: process.env.REFRESH_TOKEN_EXPIRY })
@@ -88,4 +83,4 @@ userSchema.methods.generateRefreshToken = function () {
 
 
 
-export const User = mongoose.model("User", userModel)
+export const User = mongoose.model("User", userSchema)

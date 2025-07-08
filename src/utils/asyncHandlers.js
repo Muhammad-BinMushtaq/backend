@@ -1,5 +1,5 @@
 
-const asynHandler = (fn) => async (req, res, next) => {
+const asyncHandler = (fn) => async (req, res, next) => {
     try {
         await fn(req, res, next)
     } catch (error) {
@@ -12,6 +12,10 @@ const asynHandler = (fn) => async (req, res, next) => {
 }
 
 
+
+
+export { asyncHandler }
+
 // const asynHandler = (fn) => (req, res, next) => {
 //     return
 //     Promise
@@ -22,7 +26,7 @@ const asynHandler = (fn) => async (req, res, next) => {
 //         })
 
 
-}
+// }
 
 
 
