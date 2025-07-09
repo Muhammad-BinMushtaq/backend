@@ -3,6 +3,28 @@ import { ApiErrors } from '../utils/customApiErrors.js'
 import { User } from '../models/user.model.js'
 import { uploadOnCloudinary } from '../utils/cloudinary.js'
 import { ApiResponse } from '../utils/customApiRespose.js'
+import jwt from 'jsonwebtoken'
+
+// fuction that generate access and refresh token 
+const generateAccessAndRefreshToken = async (userId) => {
+   // console.log(userId)
+   try {
+      let user = await User.findById(userId)
+      const accessToken = await user.generateAccessToken()
+      const refreshToken = await user.generateRefreshToken()
+
+      user.refreshToken = refreshToken
+      user.save({ validateBeforeSave: false })
+
+      return {
+         accessToken, refreshToken
+      }
+   }
+   catch (error) {
+      throw new ApiErrors(401, error)
+   }
+}
+
 
 const registerUser = asyncHandler(async (req, res) => {
    const { userName, fullName, email, password } = req.body
@@ -10,8 +32,7 @@ const registerUser = asyncHandler(async (req, res) => {
    // check fields are not empty
 
    if ([userName, fullName, email, password].some((field) =>
-      field?.trim() === "")
-   ) {
+      field?.trim() === "")) {
       throw new ApiErrors(400, "All fields are required")
    }
 
@@ -33,7 +54,7 @@ const registerUser = asyncHandler(async (req, res) => {
    // const coverImageLocalPath = req.files?.coverImage?.[0]?.path
 
    let coverImageLocalPath;
-   if (req.files && req.files.coverImage && Array.isArray(req.files.coverImage) && req.files.coverImage.length > 0) {  coverImageLocalPath = req.files.coverImage[0].path }
+   if (req.files && req.files.coverImage && Array.isArray(req.files.coverImage) && req.files.coverImage.length > 0) { coverImageLocalPath = req.files.coverImage[0].path }
 
 
    if (!avatarLocalPath) {
@@ -104,4 +125,132 @@ const registerUser = asyncHandler(async (req, res) => {
 
 })
 
-export { registerUser }
+
+const loginUser = asyncHandler(async (req, res) => {
+
+   // get data from input
+   // validate input not empty both 
+   // check if user exist or not -if not redirect to signup
+   // if found then match password though bcypt
+   // if match then send access token and refresh token both through secure cookies
+   // send resposne
+
+   const { email, userName, password } = req.body
+
+   // validate input not empty both 
+   if ([email, password].some((field) => field?.trim() == "")) {
+      throw new ApiErrors(401, "All fields are required")
+   }
+
+   // check if user exist or not
+   const user = await User.findOne({
+      $or: [{ email }, { userName }]
+   })
+
+   if (!user) {
+      throw new ApiErrors(401, "User not found Register first");
+   }
+
+   // compare password
+   const isPasswordValid = await user.isPasswordCorrect(password)
+
+   if (!isPasswordValid) {
+      throw new ApiErrors(401, "incorrect credentials");
+   }
+
+
+   // access token and refresh token - saparate function that generate both and return them
+
+   const { accessToken, refreshToken } = await generateAccessAndRefreshToken(user._id)
+
+   const options = {
+      httpOnly: true,
+      secure: true
+   }
+
+   const safeUser = await User.findById(user._id).select("-password -refreshToken")
+
+   res
+      .status(200)
+      .cookie("accessToken", accessToken, options)
+      .cookie("refreshToken", refreshToken, options)
+      .json(
+         new ApiResponse(
+            200, {
+            user: safeUser, accessToken, refreshToken
+         }, "user login successfully"
+         )
+      )
+})
+
+
+const logoutUser = asyncHandler(async (req, res) => {
+
+   await User.findOneAndUpdate(
+      req.user._id,
+      { $set: { refreshToken: undefined } },
+      { new: true }
+   )
+
+   const options = {
+      httpOnly: true,
+      secure: true
+   }
+
+   return res
+      .status(200)
+      .clearCookie('refreshToken', options)
+      .clearCookie('accessToken', options)
+      .json(new ApiResponse(200, {}, "logout useer"))
+})
+
+
+const refreshAccessToken = asyncHandler(async (req, res) => {
+
+   const incomingRefreshToken = req.cookies.refreshToken || req.body.refreshToken
+
+   if (!incomingRefreshToken) {
+      throw new ApiErrors(400, "Invalid access");
+   }
+
+   let decodedIncomingrefreshAccessToken;
+
+   try {
+      decodedIncomingrefreshAccessToken = jwt.verify(incomingRefreshToken,
+         process.env.REFRESH_TOKEN_SECRET_KEY)
+
+   } catch (error) {
+
+      throw new ApiErrors(400, "invalid token")
+   }
+
+   const user = await User.findById(decodedIncomingrefreshAccessToken._id)
+
+   if (!user) {
+      throw new ApiErrors(400, "user not found")
+   }
+
+   const options = {
+      httpOnly: true,
+      secure: true
+   }
+
+   if (user.refreshToken !== incomingRefreshToken) {
+      throw new ApiErrors(400, "invalid access")
+   }
+
+   const { accessToken: NewAccessToken, refreshToken: NewRefreshToken } =
+      await generateAccessAndRefreshToken(user._id)
+
+   user.refreshToken = NewRefreshToken
+   await user.save({ validateBeforeSave: false })
+
+   res.status(200)
+      .cookie("accessToken", NewAccessToken, options)
+      .cookie("refreshToken", NewRefreshToken, options)
+      .json(200,
+         { NewAccessToken, NewRefreshToken },
+         "success"
+      )
+})
+export { registerUser, loginUser, logoutUser, refreshAccessToken }
