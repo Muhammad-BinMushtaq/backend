@@ -25,6 +25,7 @@ const verifyJwt = (asyncHandler(async (req, res,next) => {
             throw new ApiErrors(400, "token is invalid")
         }
         req.user = user
+  
         next()
     }
 
