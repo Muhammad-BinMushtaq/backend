@@ -4,6 +4,8 @@ import { User } from '../models/user.model.js'
 import { uploadOnCloudinary } from '../utils/cloudinary.js'
 import { ApiResponse } from '../utils/customApiRespose.js'
 import jwt from 'jsonwebtoken'
+import mongoose from 'mongoose'
+import { use } from 'react'
 
 // fuction that generate access and refresh token 
 const generateAccessAndRefreshToken = async (userId) => {
@@ -371,18 +373,155 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
       throw new ApiErrors(400, "channel not found")
    }
 
-   User.aggregate([
-      // first stage 
+
+
+
+
+   const channel = await User.aggregate([
+      //   first pipeline
+
       {
-         $match: { userName: userName?.trim() }
+         $match: {
+            userName: userName.trim()
+         }
       },
 
-      // second stage
-   
+      //   second pipe line find subscribers pipeline
+      {
+
+         $lookup: {
+            from: "subscriptions",
+            localField: "_id",
+            foreignField: "channel",
+            as: "subscribers"
+         }
+      },
+
+      // third pipeline
+      {
+         $lookup: {
+            from: "subscriptions",
+            localField: "_id",
+            foreignField: "subscriber",
+            as: "subscribedTo"
+         }
+      },
+      // fourth pipeline
+      {
+         $addFields: {
+            countSubscribers: {
+               $size: "$subscribers"
+            },
+            $addFields: {
+               countChannelSubscribed: {
+                  $size: "$subscribedTo"
+               },
+            },
+
+            $addFields: {
+               isUserSubsribed: {
+                  $if: {
+                     $in: [req.user.user_id, "$subscribers.subscriber"],
+                     then: true,
+                     else: false
+                  }
+               }
+            }
+         }
+      }
+      ,
+
+      // fifth pipeline
+
+      {
+         $project: {
+            userName: 1,
+            email: 1,
+            fullName: 1,
+            subscribersCount: 1,
+            subscribedToCount: 1,
+            isUserSubscribed: 1,
+            avatar: 1,
+            coverImage: 1
+         }
+      }
 
    ])
 
+   if (!channel.length) {
+      throw new ApiErrors(400, "channel not found")
 
+   }
+
+
+   return res
+      .status(200)
+      .json(
+         new ApiResponse(200, channel[0], "channel successfully fetched")
+      )
+
+})
+
+
+const getUserHistory = asyncHandler(async (req, res) => {
+   const user = await User.aggregate([
+
+      // first pipeline
+
+      {
+         $match: {
+            _id: mongoose.Schema.Types.ObjectId(req.user._id)
+         }
+      },
+
+      // second pipelines
+
+      {
+         $lookup: {
+            from: "videos",
+            as: "watchHistory",
+            localField: "watchHistory",
+            foreignField: "_id",
+
+            pipeline: [
+               {
+                  $lookup: {
+                     from: "users",
+                     as: "owner",
+                     localField: "owner",
+                     foreignField: "_id",
+
+
+                     pipeline: [
+                        {
+                           $project: {
+                              fullName: 1,
+                              userName: 1,
+                              avatar: 1
+                           }
+                        }
+                     ]
+                  }
+               },
+
+               {
+                  $addFields: {
+                     owner: {
+                        $first: "$owner"
+                     }
+                  }
+               }
+            ]
+         }
+      }
+
+   ])
+
+   return res
+      .status(200)
+      .json(
+         new ApiResponse(200, user[0].watchHistory)
+      )
 })
 
 export {
@@ -394,5 +533,7 @@ export {
    getCurrentUser,
    updateUserDetails,
    updateUserAvatar,
-   updateUserCoverImage
+   updateUserCoverImage,
+   getUserChannelProfile,
+   getUserHistory
 }
