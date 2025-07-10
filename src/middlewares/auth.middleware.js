@@ -14,7 +14,7 @@ const verifyJwt = (asyncHandler(async (req, res,next) => {
         // console.log(token);
 
         if (!token) {
-            throw new ApiErrors(400, "request not allowed ,invalid token")
+            throw new ApiErrors(400, "request not allowed ,Should login first")
         }
 
         const decodedToken = await jwt.verify(token, process.env.ACCESS_TOKEN_SECRET_KEY)

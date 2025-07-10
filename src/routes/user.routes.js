@@ -40,7 +40,7 @@ router.route('/login').post(loginUser)
 
 // protected routes
 router.route('/logout').post(verifyJwt, logoutUser)
-router.route('/refresh-token').post(refreshAccessToken)
+router.route('/refresh-token').post(verifyJwt,refreshAccessToken)
 router.route('/change-password').post(verifyJwt, changeCurrentPassword)
 router.route('/get-user').get(verifyJwt, getCurrentUser)
 router.route('/update-user-details').patch(verifyJwt, updateUserDetails)

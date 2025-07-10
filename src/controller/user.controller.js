@@ -5,7 +5,7 @@ import { uploadOnCloudinary } from '../utils/cloudinary.js'
 import { ApiResponse } from '../utils/customApiRespose.js'
 import jwt from 'jsonwebtoken'
 import mongoose from 'mongoose'
-import { use } from 'react'
+
 
 // fuction that generate access and refresh token 
 const generateAccessAndRefreshToken = async (userId) => {
@@ -190,7 +190,7 @@ const logoutUser = asyncHandler(async (req, res) => {
 
    await User.findOneAndUpdate(
       req.user._id,
-      { $set: { refreshToken: undefined } },
+      { $unset: { refreshToken: 1 } },
       { new: true }
    )
 
@@ -225,8 +225,8 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
 
       throw new ApiErrors(400, "invalid token")
    }
-
-   const user = await User.findById(decodedIncomingrefreshAccessToken._id)
+   console.log(decodedIncomingrefreshAccessToken)
+   const user = await User.findById(decodedIncomingrefreshAccessToken.id)
 
    if (!user) {
       throw new ApiErrors(400, "user not found")
@@ -274,7 +274,7 @@ const changeCurrentPassword = asyncHandler(async (req, res) => {
    return res
       .status(200)
       .json(
-         new ApiResponse(200, {}, "login successfully")
+         new ApiResponse(200, {}, "password changed successfully")
       )
 })
 
