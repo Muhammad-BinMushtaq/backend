@@ -8,12 +8,17 @@ app.use(cors({
     credentials: true
 }))
 
-app.use(json({ limit: "16kb"}))
-app.use(urlencoded({extended:true}))
+app.use(json({ limit: "16kb" }))
+app.use(urlencoded({ extended: true }))
 app.use(cookieParser())
 app.use(express.static("public"))
 
-import userRouter from './routes/user.routes.js'
-app.use("/api/v1/users",userRouter)
+// import all routes
 
-export {app}
+import userRouter from './routes/user.routes.js'
+import videoRouter from './routes/video.router.js'
+
+app.use("/api/v1/users", userRouter)
+app.use("api/v1/video", videoRouter)
+
+export { app }
